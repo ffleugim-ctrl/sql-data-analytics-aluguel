@@ -1,0 +1,95 @@
+projeto-gestao-alugueis-fazendinha.sql
+-- ======================================================
+-- PROJETO: GESTÃO DE ALUGUÉIS - ESTRADA DA FAZENDINHA
+-- OBJETIVO: CONTROLE DE PAGAMENTOS E ANÁLISE DE INADIMPLÊNCIA
+-- ======================================================
+
+-- 1. CRIAÇÃO DO AMBIENTE
+USE master;
+GO
+
+-- Apaga o banco se ele já existir para evitar erros de duplicata
+IF EXISTS (SELECT * FROM sys.databases WHERE name = 'GestaoAluguel')
+    DROP DATABASE GestaoAluguel;
+GO
+
+CREATE DATABASE GestaoAluguel;
+GO
+
+USE GestaoAluguel;
+GO
+
+-- 2. CRIAÇÃO DAS TABELAS
+-- Tabela de Imóveis (Cadastro das casas)
+CREATE TABLE Imoveis (
+    id_imovel INT PRIMARY KEY IDENTITY(1,1),
+    tipo_imovel VARCHAR(50), -- 'Padrao' ou 'Luxo'
+    endereco VARCHAR(100),
+    valor_base DECIMAL(10, 2)
+);
+GO
+
+-- Tabela de Pagamentos (Histórico mensal)
+CREATE TABLE Pagamentos (
+    id_pagamento INT PRIMARY KEY IDENTITY(1,1),
+    id_imovel INT,
+    mes_referencia DATE,
+    data_pagamento DATE,
+    valor_pago DECIMAL(10, 2),
+    juros_aplicados DECIMAL(10, 2),
+    CONSTRAINT FK_Imovel FOREIGN KEY (id_imovel) REFERENCES Imoveis(id_imovel)
+);
+GO
+
+-- 3. INSERÇÃO DE DADOS (POPULANDO O BANCO)
+-- Inserindo as 12 casas padrão e as 2 de luxo com piscina
+INSERT INTO Imoveis (tipo_imovel, endereco, valor_base) VALUES 
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 01', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 02', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 03', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 04', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 05', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 06', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 07', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 08', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 09', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 10', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 11', 1400.00),
+('Padrao', 'Estrada da Fazendinha, 100 - Casa 12', 1400.00),
+('Luxo',   'Estrada da Fazendinha, 250 - Casa A', 3500.00),
+('Luxo',   'Estrada da Fazendinha, 250 - Casa B', 3500.00);
+GO
+
+-- Inserindo registros de pagamento para o mês de Março/2025
+-- Apenas 2 casas pagaram (gerando os 14% que vimos no gráfico)
+INSERT INTO Pagamentos (id_imovel, mes_referencia, data_pagamento, valor_pago, juros_aplicados) VALUES
+(13, '2025-03-01', '2025-03-05', 3500.00, 0.00),
+(14, '2025-03-01', '2025-03-05', 3500.00, 0.00);
+GO
+
+-- 4. CONSULTA PARA O DASHBOARD (PEOPLE ANALYTICS)
+-- Esta query gera os percentuais exatos para o seu gráfico de rosca
+SELECT 
+    Status_Pagamento,
+    COUNT(*) AS Total_Casas,
+    CAST(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM Imoveis) AS DECIMAL(10,2)) AS Percentual
+FROM (
+    SELECT 
+        I.id_imovel,
+        CASE 
+            WHEN MAX(P.juros_aplicados) > 0 THEN 'Pagou com Atraso'
+            WHEN MAX(P.valor_pago) IS NULL THEN 'Inadimplente'
+            ELSE 'Pagou em Dia'
+        END AS Status_Pagamento
+    FROM Imoveis I
+    LEFT JOIN Pagamentos P ON I.id_imovel = P.id_imovel 
+    AND P.mes_referencia = '2025-03-01'
+    GROUP BY I.id_imovel
+) AS Subconsulta
+GROUP BY Status_Pagamento;
+GO
+
+-- 5. CONFERÊNCIA GERAL
+SELECT * FROM Imoveis;
+SELECT * FROM Pagamentos;
+GO
